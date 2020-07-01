@@ -3,20 +3,16 @@
     <q-input filled  label="Buscar..." v-model="filtro" />
     
     <!-- Editor -->
-    <q-editor v-if="!modoEdicion"
-  v-model="editor"
-  flat
+    <q-editor v-if="!modoEdicion" v-model="editor" flat
       content-class="bg-amber-3"
       toolbar-text-color="white"
       toolbar-toggle-color="yellow-8"
       toolbar-bg="primary"
-      
   :definitions="{
         save: {
           tip: 'Save your work',
           icon: 'save',
           label: 'guardar',
-          
           handler: saveWork
         }
       }"
@@ -25,9 +21,6 @@
         ['upload', 'save']
       ]"
 />
-
-
-
 
 <q-editor v-else
   v-model="editor"
@@ -46,19 +39,16 @@
 />
     <!-- Donde se pinta -->
 <q-card
-  flat bordered  class="row justify-between"  v-for="(item, index) in flask" :key="index"
->
+  flat bordered  class="row justify-between" 
+  v-for="(item, index) in tasks" :key="index">
   <q-card-section
     v-html="item.texto"
     class="col"
-    :class="item.estado ? 'tachar' : ''"
-  >
-    :class="item.estado ? 'tachar' : ''"
-  >
+    :class="item.estado ? 'tachar' : ''">
   </q-card-section>
   <q-btn flat color="yellow" @click="editar(index, item.id)">actualizar</q-btn>
   <q-btn flat color="green" @click="item.estado = !item.estado">TAREA REALIZADA</q-btn>
-  <q-btn flat color="red" @click="eliminar(index)">Eliminar</q-btn>
+  <q-btn flat color="red" @click="eliminar(index, item.id)">Eliminar</q-btn>
   <q-space />
 </q-card>
 <div v-if="tasks.length == 0" class="flex flex-center">
@@ -75,15 +65,15 @@
 
 
 import { db } from "boot/firebase"; // no olvidar importar db
+
 export default {
     data() {
       return {
-        editor: "No te olvides de tus tareas, escribilas aca",
-          tasks: [  ],
-          index: null,
-          texto: ' ',
-          modoEdicion: false, 
-          arrayFiltrado:[] 
+        editor: '',
+        tasks: [],
+        index: null,
+        modoEdicion: false, 
+        id:null 
            
 
       }
@@ -113,43 +103,38 @@ created(){
 },
 
 methods:{
+editar(index, id){
+  this.modoEdicion = true;  
+  this.index = index;
+  this.id = id;
+  this.editor = this.tasks[index].texto
+},
 async updateWork(){
-  try {
+  try{
+
     const resDB = await db.collection('tarea').doc(this.id).update({
       texto: this.editor
     })
 
-    this.tasks[this.index].texto = this.editor;
+    this.tasks[this.index].texto = this.editor
     this.$q.notify({
-      message: 'Tarea actualizada con éxito!',
+      message: 'Tarea Actualizada',
       color: 'dark',
       textColor: 'white',
       icon: 'cloud_done'
     })
-  } catch (error) {
+  }catch(error){
     console.log(error);
-     this.$q.notify({
-      message: error,
-      color: 'red',
-      textColor: 'white',
-      icon: 'clear'
-     })
   }finally{
-  this.editor = ''
-  this.index = null;
-  this.modoEdicion = false;  
-  this.id = null;
-    }
+    this.modoEdicion = false;  
+    this.index = null;
+    this.id = null;
+    this.editor = ''
+  }
 },
- editar(index, id){
-  this.editor = this.tasks[index].texto
-  this.index = index;
-  this.modoEdicion = true;  
-  this.id = id;
-},
+
 async listarTareas(){
   try {
-   this.$q.loading.show()
     const resDB = await db.collection('tarea').get();
 
     resDB.forEach(res => {
@@ -164,7 +149,7 @@ async listarTareas(){
   } catch (error) {
     console.log(error);
   } finally {
-    this.$q.loading.hide()
+    //this.$q.loading.hide()
   }
 },
 
@@ -173,18 +158,14 @@ async listarTareas(){
   async saveWork () {
     
     try {
-      this.$q.loading.show()
     const resDB = await db.collection('tarea').add({
       texto: this.editor,
       estado: false
     })
-      
-    } catch (error) {
-      
-    }
     this.tasks.push({
       texto: this.editor,
-      estado:false
+      estado:false,
+      id: resDB.id
     })
     this.$q.notify({
       message: 'Tarea guardada',
@@ -192,15 +173,31 @@ async listarTareas(){
       textColor: 'black',
       icon: 'cloud_done'
     })
+      
+    } catch (error) {
+      console.log(error)
+    }
+    
   },
-  eliminar(index){
+
+  eliminar(index,id){
+  
+
   this.$q.dialog({
     title: 'Cuidado!',
     message: 'Desea eliminar la nota?',
     cancel: true,
     persistent: true
-  }).onOk(() => {
+  }).onOk(async () => {
+    try{
+    
+    await db.collection('tarea').doc(id).delete();
     this.tasks.splice(index, 1);
+
+    }catch(error){
+      console.log(error);
+    }
+    
   })
 }
 }
